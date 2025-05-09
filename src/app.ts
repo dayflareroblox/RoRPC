@@ -3,6 +3,9 @@ import bodyParser from "body-parser";
 import robloxWebhook from "./routes/robloxWebhook";
 import { ENV } from "./configs/env";
 
+import { RpcService } from "./rpc/RpcService";
+import { RpcHandlerRegistry } from "./rpc/RpcHandlerRegistry";
+
 const app = express();
 app.use(bodyParser.json());
 
