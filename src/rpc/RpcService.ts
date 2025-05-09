@@ -10,7 +10,6 @@ export class RpcService {
   async callClient(
     method: string,
     args: any,
-    targetPlayerId: string,
   ): Promise<any> {
     const id = uuidv4();
     const topic = `rpc-global`;
@@ -19,30 +18,56 @@ export class RpcService {
       this.pendingResponses.set(id, resolve);
 
       this.client.publishMessage({
-        topic: topic,
+        topic,
         message: JSON.stringify({
           type: "invoke",
           id,
           method,
           args,
-        })
+          topic,
+        }),
       });
+
+      setTimeout(() => {
+        if (this.pendingResponses.has(id)) {
+          this.pendingResponses.delete(id);
+          resolve(null);
+        }
+      }, 10000);
     });
   }
 
   async handleIncomingRpc(body: any) {
     if (body.type === "invoke") {
-      if (body.method === "GetInfo") {
-        return {
-          type: "response",
-          id: body.id,
-          result: "info info",
-        };
+      const result = await this.resolveLocalRpc(body.method, body.args);
+
+      const replyTopic = `rpc-global`;
+      if (body.id) {
+        await this.client.publishMessage({
+          topic: replyTopic,
+          message: JSON.stringify({
+            type: "response",
+            id: body.id,
+            result,
+          }),
+        });
       }
-    } else if (body.type === "response" && body.id && this.pendingResponses.has(body.id)) {
+    } else if (
+      body.type === "response" &&
+      body.id &&
+      this.pendingResponses.has(body.id)
+    ) {
       const resolver = this.pendingResponses.get(body.id)!;
       resolver(body.result);
       this.pendingResponses.delete(body.id);
     }
+  }
+
+  private async resolveLocalRpc(method: string, args: any): Promise<any> {
+    if (method === "GetInfo") {
+      return "info info";
+    }
+
+    return null;
   }
 }
