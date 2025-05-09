@@ -1,11 +1,11 @@
 import { Router, Request, Response } from "express";
 import { RpcService } from "../rpc/RpcService";
-import path from "path";
 import { RpcHandlerRegistry } from "../rpc/RpcHandlerRegistry";
+import * as path from "path";
 
 const router = Router();
 
-const handlers = new RpcHandlerRegistry(path.join(__dirname, "rpc/handlers"));
+const handlers = new RpcHandlerRegistry(path.join(__dirname, "../rpc/handlers"));
 const rpcService = new RpcService(handlers);
 
 router.post("/roblox-webhook", async (req: any, res: any) => {
