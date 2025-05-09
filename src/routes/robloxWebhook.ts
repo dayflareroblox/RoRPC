@@ -6,8 +6,7 @@ const rpcService = new RpcService();
 
 router.post("/roblox-webhook", async (req: any, res: any) => {
   try {
-    const result = await rpcService.handleIncomingRpc(req.body);
-    if (result) return res.status(200).json(result); // server replies
+    await rpcService.handleIncomingRpc(req.body);
     res.status(200).send({ status: "ok" });
   } catch (err) {
     console.error("Error handling RPC:", err);

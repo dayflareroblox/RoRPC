@@ -43,7 +43,7 @@ export class RpcService {
 
       const replyTopic = `rpc-global`;
       if (body.id) {
-        await this.client.publishMessage({
+        return await this.client.publishMessage({
           topic: replyTopic,
           message: JSON.stringify({
             type: "response",
