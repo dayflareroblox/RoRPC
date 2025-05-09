@@ -13,8 +13,8 @@ export class RobloxOpenCloudClient {
     return RobloxOpenCloudClient._instance;
   }
 
-  async publishMessage(topic: string, payload: any): Promise<void> {
-    const url = `https://apis.roblox.com/messaging-service/v1/universes/${ENV.UNIVERSE_ID}/topics/${topic}`;
+  async publishMessage(payload: any): Promise<void> {
+    const url = `https://apis.roblox.com/cloud/v2/universes/${ENV.UNIVERSE_ID}:publishMessage`;
     const headers = {
       "x-api-key": ENV.ROBLOX_API_KEY,
       "Content-Type": "application/json",

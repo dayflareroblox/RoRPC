@@ -11,7 +11,10 @@ export class RpcService {
       args,
     };
 
-    await this.client.publishMessage(topic, payload);
+    await this.client.publishMessage({
+      topic: topic,
+      message: payload
+    });
   }
 
   async handleIncomingRpc(body: any) {
