@@ -10,7 +10,7 @@ export class RpcService {
 
   constructor(private handlers: RpcHandlerRegistry) {}
 
-  async callClient(method: string, args: any, targetPlayerId?: string): Promise<any> {
+  async callClient(method: string, args: any): Promise<any> {
     const id = uuidv4();
 
     return new Promise((resolve) => {
@@ -26,12 +26,12 @@ export class RpcService {
         }),
       });
 
-      setTimeout(() => {
-        if (this.pendingResponses.has(id)) {
-          this.pendingResponses.delete(id);
-          resolve(null);
-        }
-      }, 10000);
+      // setTimeout(() => {
+      //   if (this.pendingResponses.has(id)) {
+      //     this.pendingResponses.delete(id);
+      //     resolve(null);
+      //   }
+      // }, 10000);
     });
   }
 
@@ -39,7 +39,7 @@ export class RpcService {
     if (body.type === "invoke") {
       const result = await this.handlers.handle(body.method, body.args);
       const replyTopic = body.replyTopic ?? topic;
-      
+
       if (body.id) {
         await this.client.publishMessage({
           topic: replyTopic,
