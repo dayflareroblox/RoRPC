@@ -13,8 +13,7 @@ export class RpcService {
     targetPlayerId: string,
   ): Promise<any> {
     const id = uuidv4();
-    const topic = `rpc-player-${targetPlayerId}`;
-    const replyTopic = `rpc-server-reply-${targetPlayerId}`;
+    const topic = `rpc-global`;
 
     return new Promise((resolve) => {
       this.pendingResponses.set(id, resolve);
@@ -26,7 +25,6 @@ export class RpcService {
           id,
           method,
           args,
-          replyTopic,
         })
       });
     });
