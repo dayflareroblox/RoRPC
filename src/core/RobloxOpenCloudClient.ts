@@ -20,6 +20,6 @@ export class RobloxOpenCloudClient {
       "Content-Type": "application/json",
     };
 
-    await axios.post(url, JSON.stringify(payload), { headers });
+    await axios.post(url, payload, { headers });
   }
 }
