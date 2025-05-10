@@ -1,14 +1,29 @@
-// rpc/RpcService.ts
-import { RobloxOpenCloudClient } from "../core/RobloxOpenCloudClient";
 import { v4 as uuidv4 } from "uuid";
-import { RpcHandlerRegistry } from "./RpcHandlerRegistry";
+import { RobloxOpenCloudClient } from "../core/RobloxOpenCloudClient";
+import { RpcHandler, RpcServiceConfig } from "../types";
 
-const topic = `rpc-global`;
 export class RpcService {
-  private client = RobloxOpenCloudClient.getInstance();
+  private client: RobloxOpenCloudClient;
   private pendingResponses: Map<string, (value: any) => void> = new Map();
+  private handlers: Map<string, RpcHandler> = new Map();
+  private topic: string;
+  private timeoutMs: number;
 
-  constructor(private handlers: RpcHandlerRegistry) { }
+  constructor(config: RpcServiceConfig) {
+    this.topic = config.topic ?? "rpc-global";
+    this.timeoutMs = config.timeoutMs ?? 10000;
+    this.client = new RobloxOpenCloudClient({
+      apiKey: config.apiKey,
+      universeId: config.universeId,
+    });
+  }
+
+  registerHandler(method: string, handler: RpcHandler): void {
+    if (this.handlers.has(method)) {
+      throw new Error(`Handler for method '${method}' is already registered.`);
+    }
+    this.handlers.set(method, handler);
+  }
 
   async callClient(method: string, args: any): Promise<any> {
     const id = uuidv4();
@@ -21,11 +36,11 @@ export class RpcService {
           this.pendingResponses.delete(id);
           resolve(null);
         }
-      }, 10000);
+      }, this.timeoutMs);
     });
 
-    this.client.publishMessage({
-      topic,
+    await this.client.publishMessage({
+      topic: this.topic,
       message: JSON.stringify({
         type: "invoke",
         id,
@@ -37,11 +52,15 @@ export class RpcService {
     return promise;
   }
 
-
-  async handleIncomingRpc(body: any) {
+  async handleRpcBody(body: any): Promise<any> {
     if (body.type === "invoke") {
-      const result = await this.handlers.handle(body.method, body.args);
-      const replyTopic = body.replyTopic ?? topic;
+      const handler = this.handlers.get(body.method);
+      if (!handler) {
+        throw new Error(`No handler registered for method '${body.method}'`);
+      }
+
+      const result = await handler(body.args);
+      const replyTopic = body.replyTopic ?? this.topic;
 
       if (body.id) {
         await this.client.publishMessage({
@@ -53,10 +72,17 @@ export class RpcService {
           }),
         });
       }
-    } else if (body.type === "response" && body.id && this.pendingResponses.has(body.id)) {
+
+      return { status: "ok", result };
+    }
+
+    if (body.type === "response" && body.id && this.pendingResponses.has(body.id)) {
       const resolver = this.pendingResponses.get(body.id)!;
       resolver(body.result);
       this.pendingResponses.delete(body.id);
+      return { status: "ok" };
     }
+
+    throw new Error("Invalid RPC payload");
   }
 }

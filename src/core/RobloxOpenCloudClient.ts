@@ -1,22 +1,19 @@
 import axios from "axios";
-import { ENV } from "../configs/env";
+import { RobloxOpenCloudClientConfig } from "../types";
 
 export class RobloxOpenCloudClient {
-  private static _instance: RobloxOpenCloudClient;
+  private apiKey: string;
+  private universeId: string;
 
-  private constructor() {}
-
-  public static getInstance(): RobloxOpenCloudClient {
-    if (!RobloxOpenCloudClient._instance) {
-      RobloxOpenCloudClient._instance = new RobloxOpenCloudClient();
-    }
-    return RobloxOpenCloudClient._instance;
+  constructor(config: RobloxOpenCloudClientConfig) {
+    this.apiKey = config.apiKey;
+    this.universeId = config.universeId;
   }
 
   async publishMessage(payload: any): Promise<void> {
-    const url = `https://apis.roblox.com/cloud/v2/universes/${ENV.UNIVERSE_ID}:publishMessage`;
+    const url = `https://apis.roblox.com/cloud/v2/universes/${this.universeId}:publishMessage`;
     const headers = {
-      "x-api-key": ENV.ROBLOX_API_KEY,
+      "x-api-key": this.apiKey,
       "Content-Type": "application/json",
     };
 
