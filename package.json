@@ -1,12 +1,24 @@
 {
   "name": "rorpc",
-  "version": "1.1.4-beta",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "version": "1.1.5-beta",
   "repository": {
     "type": "git",
     "url": "https://github.com/dayflareroblox/RoRPC.git"
   },
+  "files": [
+    "dist",
+    "package.json"
+  ],
+  "exports": {
+    ".": {
+      "require": "./dist/index.js",
+      "import": "./dist/index.mjs",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
   "keywords": [
     "roblox",
     "http",
@@ -17,7 +29,8 @@
     "time"
   ],
   "scripts": {
-    "build": "rimraf dist && tsc -p tsconfig.json"
+    "build": "tsup ./src",
+    "prepare": "npm run build"
   },
   "author": "dayflare",
   "license": "ISC",
@@ -28,8 +41,9 @@
     "uuid": "^11.1.0"
   },
   "devDependencies": {
-      "rimraf": "^3.0.2",
     "@types/node": "^22.15.17",
-    "typescript": "^5.8.3"
+    "rimraf": "^3.0.2",
+    "tsup": "8.4.0",
+    "typescript": "5.8.3"
   }
 }
