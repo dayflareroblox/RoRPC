@@ -1,7 +1,8 @@
 {
   "name": "rorpc",
-  "version": "1.0.8-beta",
-  "main": "src/index.ts",
+  "version": "1.0.9-beta",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "repository": {
     "type": "git",
     "url": "https://github.com/dayflareroblox/RoRPC.git"
