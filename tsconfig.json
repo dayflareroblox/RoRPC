@@ -9,6 +9,7 @@
         "skipLibCheck": true,
         "forceConsistentCasingInFileNames": true
     },
+    "type": "module",
     "include": ["src/**/*"],
     "exclude": ["node_modules"]
 }
