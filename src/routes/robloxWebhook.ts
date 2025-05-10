@@ -10,7 +10,7 @@ const rpcService = new RpcService(handlers);
 
 setInterval(async () => {
   const resp = await rpcService.callClient("GetRobloxInfo", {})
-  console.log(resp)
+  console.log("Server -> Roblox Response", resp)
 }, 5000);
 
 router.post("/roblox-webhook", async (req: any, res: any) => {
