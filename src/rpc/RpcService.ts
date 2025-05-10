@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from "uuid";
 import { RobloxOpenCloudClient } from "../core/RobloxOpenCloudClient";
 import { RpcHandler, RpcServiceConfig } from "../types";
+import { RpcConnectionPool } from "./RpcConnectionPool";
 export class RpcService {
     private client: RobloxOpenCloudClient;
     private pendingResponses: Map<string, (value: any) => void> = new Map();

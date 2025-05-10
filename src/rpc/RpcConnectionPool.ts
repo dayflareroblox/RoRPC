@@ -1,4 +1,4 @@
-class RpcConnectionPool {
+export class RpcConnectionPool {
   private activeServers: Set<string> = new Set();
 
   connect(jobId: string) {
