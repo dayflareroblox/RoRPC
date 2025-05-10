@@ -1,6 +1,6 @@
 {
   "name": "rorpc",
-  "version": "1.0.9-beta",
+  "version": "1.0.0-beta",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "repository": {
@@ -17,7 +17,7 @@
     "time"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json"
+    "build": "rimraf dist && tsc -p tsconfig.json"
   },
   "author": "dayflare",
   "license": "ISC",
@@ -28,6 +28,7 @@
     "uuid": "^11.1.0"
   },
   "devDependencies": {
+      "rimraf": "^3.0.2",
     "@types/node": "^22.15.17",
     "typescript": "^5.8.3"
   }
