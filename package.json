@@ -8,7 +8,7 @@
     "dev": "ts-node src/app.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "dayflareroblox",
+  "author": "dayflare",
   "license": "ISC",
   "keywords": [],
   "description": "",
