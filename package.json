@@ -1,17 +1,25 @@
 {
   "name": "rorpc",
-  "version": "1.0.7-beta",
+  "version": "1.0.8-beta",
   "main": "src/index.ts",
-  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dayflareroblox/RoRPC.git"
+  },
+  "keywords": [
+    "roblox",
+    "http",
+    "long",
+    "polling",
+    "realtime",
+    "real",
+    "time"
+  ],
   "scripts": {
-    "build": "tsc",
-    "start": "node dist/app.js",
-    "dev": "ts-node src/app.ts",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "tsc -p tsconfig.json"
   },
   "author": "dayflare",
   "license": "ISC",
-  "keywords": [],
   "description": "",
   "dependencies": {
     "axios": "^1.9.0",
