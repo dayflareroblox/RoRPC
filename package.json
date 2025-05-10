@@ -1,7 +1,7 @@
 {
   "name": "rorpc",
-  "version": "1.0.1-beta",
-  "main": "index.js",
+  "version": "1.1.2-beta",
+  "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "repository": {
     "type": "git",
@@ -17,7 +17,8 @@
     "time"
   ],
   "scripts": {
-    "build": "rimraf dist && tsc -p tsconfig.json"
+    "build": "rimraf dist && tsc -p tsconfig.json",
+    "postinstall": "npm run build"
   },
   "author": "dayflare",
   "license": "ISC",
