@@ -1,7 +1,7 @@
-import { Router, Request, Response } from "express";
-import { RpcService } from "../rpc/RpcService";
-import { RpcHandlerRegistry } from "../rpc/RpcHandlerRegistry";
+import { Router } from "express";
 import * as path from "path";
+import { RpcHandlerRegistry } from "../rpc/RpcHandlerRegistry";
+import { RpcService } from "../rpc/RpcService";
 
 const router = Router();
 
