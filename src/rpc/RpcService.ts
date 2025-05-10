@@ -8,32 +8,35 @@ export class RpcService {
   private client = RobloxOpenCloudClient.getInstance();
   private pendingResponses: Map<string, (value: any) => void> = new Map();
 
-  constructor(private handlers: RpcHandlerRegistry) {}
+  constructor(private handlers: RpcHandlerRegistry) { }
 
   async callClient(method: string, args: any): Promise<any> {
     const id = uuidv4();
 
-    return new Promise((resolve) => {
+    const promise = new Promise<any>((resolve) => {
       this.pendingResponses.set(id, resolve);
 
-      this.client.publishMessage({
-        topic,
-        message: JSON.stringify({
-          type: "invoke",
-          id,
-          method,
-          args,
-        }),
-      });
-
-      // setTimeout(() => {
-      //   if (this.pendingResponses.has(id)) {
-      //     this.pendingResponses.delete(id);
-      //     resolve(null);
-      //   }
-      // }, 10000);
+      setTimeout(() => {
+        if (this.pendingResponses.has(id)) {
+          this.pendingResponses.delete(id);
+          resolve(null);
+        }
+      }, 10000);
     });
+
+    this.client.publishMessage({
+      topic,
+      message: JSON.stringify({
+        type: "invoke",
+        id,
+        method,
+        args,
+      }),
+    });
+
+    return promise;
   }
+
 
   async handleIncomingRpc(body: any) {
     if (body.type === "invoke") {
