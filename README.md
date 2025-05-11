@@ -30,17 +30,46 @@ const rpcService = new RpcService({
 });
 ```
 
+### Reading POST requests
+
+Example with express:
+```ts
+import express from "express";
+import bodyParser from "body-parser";
+import { service } from "./service";
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.use(bodyParser.json());
+
+app.post("/rpc", async (req, res) => {
+  try {
+    const result = await service.handleRpcBody(req.body);
+    res.json({ status: "ok", result });
+  } catch (error) {
+    console.error("RPC Error:", error);
+    res.status(500).json({ status: "error", message: error.message });
+  }
+});
+
+app.listen(PORT, () => {
+  console.log(`RoRPC server listening on port ${PORT}`);
+});
+
+```
+
 ### Registering Handlers
 Handlers are used to bind incoming calls to the RPC service, for example if your roblox game is requesting data, you would register handlers to fetch and return the data to the game server.
 ```ts
-// Global handler (all jobs)
+// Global handler
 rpcService.registerHandler('getPlayerData', async (playerId) => {
   return await fetchPlayerData(playerId);
 });
 
-// Job-specific handler
+// Server-specific handler
 rpcService.registerHandler('updateJobStatus', async (status) => {
-  // Job-specific logic
+  // Server-specific logic
 }, 'job-123');
 ```
 
@@ -50,6 +79,6 @@ RPC Calls are used to fetch data from roblox servers, similar to handlers but re
 // Global call
 const playerData = await rpcService.call('getPlayerData', 'player-123');
 
-// Job-specific call
+// Server-specific call
 const result = await rpcService.call('updateConfig', { setting: 'value' }, 'job-123');
 ```
