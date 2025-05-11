@@ -1,21 +1,18 @@
+import { v4 as uuidv4 } from "uuid";
 import { RobloxOpenCloudClient } from "../core/RobloxOpenCloudClient";
-import { RpcHandler, RpcServiceConfig } from "../types";
+import { GlobalPendingRequest, RpcHandler, RpcServiceConfig } from "../types";
 import { RpcConnectionPool } from "./RpcConnectionPool";
 import { Connection } from "./Connection";
-import { v4 as uuidv4 } from "uuid";
 
+/**
+ * The RpcService manages RPC calls between your backend and Roblox servers using Open Cloud Messaging.
+ * Supports per-server RPC (by JobId) and global RPC (to all servers).
+ */
 export class RpcService {
     private client: RobloxOpenCloudClient;
-    private connectionPool: RpcConnectionPool = new RpcConnectionPool();
-    private globalPendingRequests = new Map<
-        string,
-        {
-            resolve: (responses: Array<{ jobId: string; response: any }>) => void;
-            expectedJobs: Set<string>;
-            responses: Map<string, any>;
-        }
-    >();
-    private globalHandlers: Map<string, RpcHandler> = new Map();
+    private connectionPool = new RpcConnectionPool();
+    private globalPendingRequests = new Map<string, GlobalPendingRequest>();
+    private globalHandlers = new Map<string, RpcHandler>();
     private topic: string;
     private timeoutMs: number;
 
@@ -28,53 +25,54 @@ export class RpcService {
         });
     }
 
+    /**
+     * Registers an RPC method handler either globally or for a specific JobId.
+     */
     registerHandler(method: string, handler: RpcHandler, jobId?: string): void {
         if (jobId) {
             const connection = this.connectionPool.getConnection(jobId);
-            if (!connection) {
-                throw new Error(`No connection found for jobId '${jobId}'`);
-            }
+            if (!connection) throw new Error(`No connection for JobId '${jobId}'`);
             connection.registerHandler(method, handler);
         } else {
             if (this.globalHandlers.has(method)) {
-                throw new Error(`Handler for method '${method}' is already registered.`);
+                throw new Error(`Global handler for method '${method}' already exists.`);
             }
             this.globalHandlers.set(method, handler);
         }
     }
 
+    /**
+     * Calls an RPC method. If jobId is provided, it targets a specific server.
+     * Otherwise, invokes a global call and waits for responses.
+     */
     async call(method: string, args: any, jobId?: string): Promise<any> {
         if (jobId) {
             const connection = this.connectionPool.getConnection(jobId);
-            if (!connection) return undefined;
-            return connection.call(method, args);
+            return connection?.call(method, args);
         }
-
         return this.globalCall(method, args);
     }
 
+    /**
+     * Performs a global RPC call and collects responses from all connected servers.
+     */
     private async globalCall(method: string, args: any): Promise<Array<{ jobId: string; response: any }>> {
         const id = uuidv4();
         const activeConnections = this.connectionPool.getAllConnections();
+        const expectedJobs = new Set<string>();
+        const responses = new Map<string, any>();
+
+        for (const [jobId] of activeConnections) {
+            expectedJobs.add(jobId);
+        }
 
         const promise = new Promise<Array<{ jobId: string; response: any }>>((resolve) => {
-            const expectedJobs = new Set<string>();
-            const responses = new Map<string, any>();
-
-            activeConnections.forEach((connection) => {
-                expectedJobs.add(connection.jobId);
-            });
-
-            this.globalPendingRequests.set(id, {
-                resolve,
-                expectedJobs,
-                responses,
-            });
-
+            this.globalPendingRequests.set(id, { resolve, expectedJobs, responses });
             setTimeout(() => {
-                if (this.globalPendingRequests.has(id)) {
-                    const { responses } = this.globalPendingRequests.get(id)!;
-                    resolve(Array.from(responses.entries()).map(([jobId, response]) => ({ jobId, response })));
+                const req = this.globalPendingRequests.get(id);
+                if (req) {
+                    const result = Array.from(req.responses.entries()).map(([jobId, response]) => ({ jobId, response }));
+                    req.resolve(result);
                     this.globalPendingRequests.delete(id);
                 }
             }, this.timeoutMs);
@@ -82,88 +80,81 @@ export class RpcService {
 
         await this.client.publishMessage({
             topic: this.topic,
-            message: JSON.stringify({
-                type: "invoke",
-                id,
-                method,
-                args,
-            }),
+            message: JSON.stringify({ type: "invoke", id, method, args }),
         });
 
         return promise;
     }
 
+    /**
+     * Handles an incoming RPC payload from Roblox Open Cloud.
+     */
     async handleRpcBody(body: any): Promise<any> {
-        if (body.type == "connect" && body.jobId) {
-            const connection = this.connectionPool.connect({
-                jobId: body.jobId,
-                topic: `rpc-${body.jobId}`,
-                timeoutMs: this.timeoutMs,
-                client: this.client,
-            });
-            return { status: "connected" };
-        }
-
-        if (body.type == "disconnect" && body.jobId) {
-            this.connectionPool.disconnect(body.jobId);
-            return { status: "disconnected" };
-        }
-
-        if (body.type == "invoke") {
-            if (body.jobId) {
-                const connection = this.connectionPool.getConnection(body.jobId);
-                if (!connection) {
-                    throw new Error("Got invocation request from client that isn't connected.");
-                }
-                return connection.handleInvocation(body);
-            } else {
-                const handler = this.globalHandlers.get(body.method);
-                if (!handler) {
-                    throw new Error(`No handler registered for method '${body.method}'`);
-                }
-
-                const result = await handler(body.args);
-                const replyTopic = body.replyTopic ?? this.topic;
-
-                if (body.id) {
-                    await this.client.publishMessage({
-                        topic: replyTopic,
-                        message: JSON.stringify({
-                            type: "response",
-                            id: body.id,
-                            result,
-                        }),
+        switch (body.type) {
+            case "connect":
+                if (body.jobId) {
+                    this.connectionPool.connect({
+                        jobId: body.jobId,
+                        topic: `rpc-${body.jobId}`,
+                        timeoutMs: this.timeoutMs,
+                        client: this.client,
                     });
+                    return { status: "connected" };
+                }
+                break;
+
+            case "disconnect":
+                if (body.jobId) {
+                    this.connectionPool.disconnect(body.jobId);
+                    return { status: "disconnected" };
+                }
+                break;
+
+            case "invoke":
+                if (body.jobId) {
+                    const conn = this.connectionPool.getConnection(body.jobId);
+                    if (!conn) throw new Error("Invocation from unregistered job.");
+                    return conn.handleInvocation(body);
+                } else {
+                    const handler = this.globalHandlers.get(body.method);
+                    if (!handler) throw new Error(`No global handler for '${body.method}'`);
+
+                    const result = await handler(body.args);
+                    if (body.id) {
+                        await this.client.publishMessage({
+                            topic: body.replyTopic ?? this.topic,
+                            message: JSON.stringify({
+                                type: "response",
+                                id: body.id,
+                                result,
+                                jobId: "global",
+                            }),
+                        });
+                    }
+                    return { status: "ok", result };
                 }
 
-                return { status: "ok", result };
-            }
+            case "response":
+                if (body.id) {
+                    const pending = this.globalPendingRequests.get(body.id);
+                    if (pending && body.result.jobId) {
+                        pending.responses.set(body.result.jobId, body.result);
+                        if (pending.responses.size === pending.expectedJobs.size) {
+                            const results = Array.from(pending.responses.entries()).map(([jobId, response]) => ({ jobId, response }));
+                            pending.resolve(results);
+                            this.globalPendingRequests.delete(body.id);
+                        }
+                        return { status: "ok" };
+                    }
+
+                    const connection = this.connectionPool.getConnection(body.result.jobId);
+                    if (!connection) throw new Error("Unknown jobId in response.");
+                    return connection.handleResponse(body);
+                }
+                break;
         }
 
-        if (body.type === "response" && body.id) {
-            const request = this.globalPendingRequests.get(body.id);
-            if (!request) {
-                const connection = this.connectionPool.getConnection(body.jobId);
-                if (!connection) throw new Error("Job not connected");
-                return connection.handleResponse(body);
-            }
-
-            if (body.jobId !== undefined) {
-                request.responses.set(body.jobId, body.result);
-            }
-
-            if (request.responses.size === request.expectedJobs.size) {
-                const results = Array.from(request.responses.entries()).map(([jobId, response]) => ({
-                    jobId,
-                    response,
-                }));
-                request.resolve(results);
-                this.globalPendingRequests.delete(body.id);
-            }
-            return { status: "ok" };
-        }
-
-        console.log(body)
+        console.warn("Unhandled RPC payload:", body);
         throw new Error("Invalid RPC payload");
     }
 }

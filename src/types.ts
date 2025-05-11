@@ -21,6 +21,12 @@ export interface RpcConnectionConfig {
     client: RobloxOpenCloudClient;
 }
 
+export interface GlobalPendingRequest {
+    resolve: (responses: Array<{ jobId: string; response: any }>) => void;
+    expectedJobs: Set<string>;
+    responses: Map<string, any>;
+}
+
 export interface RpcResponse {
     status: string;
     result?: any;
