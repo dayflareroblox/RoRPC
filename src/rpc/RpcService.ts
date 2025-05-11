@@ -7,7 +7,14 @@ import { v4 as uuidv4 } from "uuid";
 export class RpcService {
     private client: RobloxOpenCloudClient;
     private connectionPool: RpcConnectionPool = new RpcConnectionPool();
-    private globalPendingResponses: Map<string, (value: any) => void> = new Map();
+    private globalPendingRequests = new Map<
+        string,
+        {
+            resolve: (responses: Array<{ jobId: string; response: any }>) => void;
+            expectedJobs: Set<string>;
+            responses: Map<string, any>;
+        }
+    >();
     private globalHandlers: Map<string, RpcHandler> = new Map();
     private topic: string;
     private timeoutMs: number;
@@ -46,16 +53,29 @@ export class RpcService {
         return this.globalCall(method, args);
     }
 
-    private async globalCall(method: string, args: any): Promise<any> {
+    private async globalCall(method: string, args: any): Promise<Array<{ jobId: string; response: any }>> {
         const id = uuidv4();
+        const activeConnections = this.connectionPool.getAllConnections();
 
-        const promise = new Promise<any>((resolve) => {
-            this.globalPendingResponses.set(id, resolve);
+        const promise = new Promise<Array<{ jobId: string; response: any }>>((resolve) => {
+            const expectedJobs = new Set<string>();
+            const responses = new Map<string, any>();
+
+            activeConnections.forEach((connection) => {
+                expectedJobs.add(connection.jobId);
+            });
+
+            this.globalPendingRequests.set(id, {
+                resolve,
+                expectedJobs,
+                responses,
+            });
 
             setTimeout(() => {
-                if (this.globalPendingResponses.has(id)) {
-                    this.globalPendingResponses.delete(id);
-                    resolve(null);
+                if (this.globalPendingRequests.has(id)) {
+                    const { responses } = this.globalPendingRequests.get(id)!;
+                    resolve(Array.from(responses.entries()).map(([jobId, response]) => ({ jobId, response })));
+                    this.globalPendingRequests.delete(id);
                 }
             }, this.timeoutMs);
         });
@@ -120,23 +140,27 @@ export class RpcService {
             }
         }
 
-        if (body.type === "response") {
-            if (!body.id || !this.globalPendingResponses.has(body.id)) {
-                throw new Error("Invalid or untracked response");
-            }
-
-            const isGlobalResponse = this.globalPendingResponses.has(body.id)
-
-            if (!isGlobalResponse && body.jobId) {
+        if (body.type === "response" && body.id) {
+            const request = this.globalPendingRequests.get(body.id);
+            if (!request) {
                 const connection = this.connectionPool.getConnection(body.jobId);
                 if (!connection) throw new Error("Job not connected");
                 return connection.handleResponse(body);
-            } else {
-                const resolver = this.globalPendingResponses.get(body.id)!;
-                resolver(body.result);
-                this.globalPendingResponses.delete(body.id);
-                return { status: "ok" };
             }
+
+            if (body.jobId !== undefined) {
+                request.responses.set(body.jobId, body.result);
+            }
+
+            if (request.responses.size === request.expectedJobs.size) {
+                const results = Array.from(request.responses.entries()).map(([jobId, response]) => ({
+                    jobId,
+                    response,
+                }));
+                request.resolve(results);
+                this.globalPendingRequests.delete(body.id);
+            }
+            return { status: "ok" };
         }
 
         console.log(body)

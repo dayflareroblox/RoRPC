@@ -3,7 +3,7 @@ import { RobloxOpenCloudClient } from "../core/RobloxOpenCloudClient";
 import { RpcHandler, RpcConnectionConfig, RpcResponse } from "../types";
 
 export class Connection {
-    private jobId: string;
+    public jobId: string;
     private topic: string;
     private timeoutMs: number;
     private client: RobloxOpenCloudClient;

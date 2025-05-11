@@ -17,6 +17,10 @@ export class RpcConnectionPool {
         }
     }
 
+    getAllConnections(): Map<string, Connection> {
+      return this.connections
+    }
+
     getConnection(jobId: string): Connection | undefined {
         return this.connections.get(jobId);
     }
