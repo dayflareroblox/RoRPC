@@ -7,6 +7,7 @@ import { v4 as uuidv4 } from "uuid";
 export class RpcService {
     private client: RobloxOpenCloudClient;
     private connectionPool: RpcConnectionPool = new RpcConnectionPool();
+    private globalPendingResponses: Map<string, (value: any) => void> = new Map();
     private globalHandlers: Map<string, RpcHandler> = new Map();
     private topic: string;
     private timeoutMs: number;
@@ -47,8 +48,16 @@ export class RpcService {
 
     private async globalCall(method: string, args: any): Promise<any> {
         const id = uuidv4();
+
         const promise = new Promise<any>((resolve) => {
-            setTimeout(() => resolve(null), this.timeoutMs);
+            this.globalPendingResponses.set(id, resolve);
+
+            setTimeout(() => {
+                if (this.globalPendingResponses.has(id)) {
+                    this.globalPendingResponses.delete(id);
+                    resolve(null);
+                }
+            }, this.timeoutMs);
         });
 
         await this.client.publishMessage({
@@ -65,7 +74,7 @@ export class RpcService {
     }
 
     async handleRpcBody(body: any): Promise<any> {
-        if (body.type === "connect" && body.jobId) {
+        if (body.type == "connect" && body.jobId) {
             const connection = this.connectionPool.connect({
                 jobId: body.jobId,
                 topic: `rpc-${body.jobId}`,
@@ -75,12 +84,12 @@ export class RpcService {
             return { status: "connected" };
         }
 
-        if (body.type === "disconnect" && body.jobId) {
+        if (body.type == "disconnect" && body.jobId) {
             this.connectionPool.disconnect(body.jobId);
             return { status: "disconnected" };
         }
 
-        if (body.type === "invoke") {
+        if (body.type == "invoke") {
             if (body.jobId) {
                 const connection = this.connectionPool.getConnection(body.jobId);
                 if (!connection) {
@@ -112,14 +121,21 @@ export class RpcService {
         }
 
         if (body.type === "response") {
-            if (body.jobId) {
+            if (!body.id || !this.globalPendingResponses.has(body.id)) {
+                throw new Error("Invalid or untracked response");
+            }
+
+            const isGlobalResponse = this.globalPendingResponses.has(body.id)
+
+            if (!isGlobalResponse && body.jobId) {
                 const connection = this.connectionPool.getConnection(body.jobId);
-                if (!connection) {
-                    throw new Error("Got response from client that isn't connected.");
-                }
+                if (!connection) throw new Error("Job not connected");
                 return connection.handleResponse(body);
             } else {
-                throw new Error("Global responses not implemented in this example");
+                const resolver = this.globalPendingResponses.get(body.id)!;
+                resolver(body.result);
+                this.globalPendingResponses.delete(body.id);
+                return { status: "ok" };
             }
         }
 
