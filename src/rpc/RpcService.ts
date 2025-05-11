@@ -122,16 +122,13 @@ export class RpcService {
             case "invoke":
                 const hasJobId = Boolean(body.jobId);
 
-                if (hasJobId) {
-                    const conn = this.connectionPool.getConnection(body.jobId);
-                    if (conn) {
-                        return conn.handleInvocation(body);
-                    }
-                }
-
                 const handler = this.globalHandlers.get(body.method);
                 if (!handler) {
                     if (hasJobId) {
+                        const conn = this.connectionPool.getConnection(body.jobId);
+                        if (conn) {
+                            return conn.handleInvocation(body);
+                        }
                         throw new Error(`No connection for job '${body.jobId}' and no global handler for '${body.method}'`);
                     } else {
                         throw new Error(`No global handler for '${body.method}'`);
