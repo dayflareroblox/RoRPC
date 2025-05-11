@@ -53,6 +53,15 @@ export class RpcService {
         return this.globalCall(method, args);
     }
 
+    async RequestAutoConnection() {
+        return await this.client.publishMessage({
+            topic: this.topic,
+            message: JSON.stringify({
+                type: "request_reconnect"
+            }),
+        });
+    }
+
     /**
      * Performs a global RPC call and collects responses from all connected servers.
      */
