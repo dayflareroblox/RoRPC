@@ -1,3 +1,4 @@
+import { RobloxOpenCloudClient } from "./core/RobloxOpenCloudClient";
 export interface RpcMessage {
     type: "invoke";
     method: string;
@@ -11,6 +12,18 @@ export interface RpcServiceConfig {
     apiKey: string;
     topic?: string;
     timeoutMs?: number;
+}
+
+export interface RpcConnectionConfig {
+    jobId: string;
+    topic: string;
+    timeoutMs: number;
+    client: RobloxOpenCloudClient;
+}
+
+export interface RpcResponse {
+    status: string;
+    result?: any;
 }
 
 export interface RobloxOpenCloudClientConfig { apiKey: string; universeId: string }

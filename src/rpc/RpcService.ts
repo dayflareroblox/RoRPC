@@ -1,12 +1,13 @@
-import { v4 as uuidv4 } from "uuid";
 import { RobloxOpenCloudClient } from "../core/RobloxOpenCloudClient";
 import { RpcHandler, RpcServiceConfig } from "../types";
 import { RpcConnectionPool } from "./RpcConnectionPool";
+import { Connection } from "./Connection";
+import { v4 as uuidv4 } from "uuid";
+
 export class RpcService {
     private client: RobloxOpenCloudClient;
-    private pendingResponses: Map<string, (value: any) => void> = new Map();
-    private handlers: Map<string, RpcHandler> = new Map();
-    private connectionPool: RpcConnectionPool = new RpcConnectionPool()
+    private connectionPool: RpcConnectionPool = new RpcConnectionPool();
+    private globalHandlers: Map<string, RpcHandler> = new Map();
     private topic: string;
     private timeoutMs: number;
 
@@ -19,34 +20,39 @@ export class RpcService {
         });
     }
 
-    registerHandler(method: string, handler: RpcHandler): void {
-        if (this.handlers.has(method)) {
-            throw new Error(`Handler for method '${method}' is already registered.`);
+    registerHandler(method: string, handler: RpcHandler, jobId?: string): void {
+        if (jobId) {
+            const connection = this.connectionPool.getConnection(jobId);
+            if (!connection) {
+                throw new Error(`No connection found for jobId '${jobId}'`);
+            }
+            connection.registerHandler(method, handler);
+        } else {
+            if (this.globalHandlers.has(method)) {
+                throw new Error(`Handler for method '${method}' is already registered.`);
+            }
+            this.globalHandlers.set(method, handler);
         }
-        this.handlers.set(method, handler);
     }
 
-    async callClient(method: string, args: any, jobId?: string): Promise<any> {
+    async call(method: string, args: any, jobId?: string): Promise<any> {
         if (jobId) {
-            if (!this.connectionPool.isConnected(jobId)) return undefined
+            const connection = this.connectionPool.getConnection(jobId);
+            if (!connection) return undefined;
+            return connection.call(method, args);
         }
 
+        return this.globalCall(method, args);
+    }
+
+    private async globalCall(method: string, args: any): Promise<any> {
         const id = uuidv4();
-        const topic = jobId ? `rpc-${jobId}` : this.topic;
-
         const promise = new Promise<any>((resolve) => {
-            this.pendingResponses.set(id, resolve);
-
-            setTimeout(() => {
-                if (this.pendingResponses.has(id)) {
-                    this.pendingResponses.delete(id);
-                    resolve(null);
-                }
-            }, this.timeoutMs);
+            setTimeout(() => resolve(null), this.timeoutMs);
         });
 
         await this.client.publishMessage({
-            topic: topic,
+            topic: this.topic,
             message: JSON.stringify({
                 type: "invoke",
                 id,
@@ -60,7 +66,12 @@ export class RpcService {
 
     async handleRpcBody(body: any): Promise<any> {
         if (body.type === "connect" && body.jobId) {
-            this.connectionPool.connect(body.jobId);
+            const connection = this.connectionPool.connect({
+                jobId: body.jobId,
+                topic: `rpc-${body.jobId}`,
+                timeoutMs: this.timeoutMs,
+                client: this.client,
+            });
             return { status: "connected" };
         }
 
@@ -70,41 +81,46 @@ export class RpcService {
         }
 
         if (body.type === "invoke") {
-            if (body.jobId && !this.connectionPool.isConnected(body.jobId)) {
-                throw new Error("Got invocation request from client that isn't connected.")
+            if (body.jobId) {
+                const connection = this.connectionPool.getConnection(body.jobId);
+                if (!connection) {
+                    throw new Error("Got invocation request from client that isn't connected.");
+                }
+                return connection.handleInvocation(body);
+            } else {
+                const handler = this.globalHandlers.get(body.method);
+                if (!handler) {
+                    throw new Error(`No handler registered for method '${body.method}'`);
+                }
+
+                const result = await handler(body.args);
+                const replyTopic = body.replyTopic ?? this.topic;
+
+                if (body.id) {
+                    await this.client.publishMessage({
+                        topic: replyTopic,
+                        message: JSON.stringify({
+                            type: "response",
+                            id: body.id,
+                            result,
+                        }),
+                    });
+                }
+
+                return { status: "ok", result };
             }
-
-            const handler = this.handlers.get(body.method);
-            if (!handler) {
-                throw new Error(`No handler registered for method '${body.method}'`);
-            }
-
-            const result = await handler(body.args);
-            const replyTopic = body.replyTopic ?? this.topic;
-
-            if (body.id) {
-                await this.client.publishMessage({
-                    topic: replyTopic,
-                    message: JSON.stringify({
-                        type: "response",
-                        id: body.id,
-                        result,
-                    }),
-                });
-            }
-
-            return { status: "ok", result };
         }
 
-        if (body.type === "response" && body.id && this.pendingResponses.has(body.id)) {
-            if (body.jobId && !this.connectionPool.isConnected(body.jobId)) {
-                throw new Error("Got response request from client that isn't connected.")
+        if (body.type === "response") {
+            if (body.jobId) {
+                const connection = this.connectionPool.getConnection(body.jobId);
+                if (!connection) {
+                    throw new Error("Got response from client that isn't connected.");
+                }
+                return connection.handleResponse(body);
+            } else {
+                throw new Error("Global responses not implemented in this example");
             }
-
-            const resolver = this.pendingResponses.get(body.id)!;
-            resolver(body.result);
-            this.pendingResponses.delete(body.id);
-            return { status: "ok" };
         }
 
         throw new Error("Invalid RPC payload");

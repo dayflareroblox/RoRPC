@@ -1,19 +1,27 @@
+import { RpcConnectionConfig } from "../types";
+import { Connection } from "./Connection";
 export class RpcConnectionPool {
-  private activeServers: Set<string> = new Set();
+    private connections: Map<string, Connection> = new Map();
 
-  connect(jobId: string) {
-    this.activeServers.add(jobId);
-  }
+    connect(config: RpcConnectionConfig): Connection {
+        const connection = new Connection(config);
+        this.connections.set(config.jobId, connection);
+        return connection;
+    }
 
-  disconnect(jobId: string) {
-    this.activeServers.delete(jobId);
-  }
+    disconnect(jobId: string): void {
+        const connection = this.connections.get(jobId);
+        if (connection) {
+            connection.disconnect();
+            this.connections.delete(jobId);
+        }
+    }
 
-  isConnected(jobId: string): boolean {
-    return this.activeServers.has(jobId);
-  }
+    getConnection(jobId: string): Connection | undefined {
+        return this.connections.get(jobId);
+    }
 
-  getAll(): string[] {
-    return [...this.activeServers];
-  }
+    isConnected(jobId: string): boolean {
+        return this.connections.has(jobId);
+    }
 }
