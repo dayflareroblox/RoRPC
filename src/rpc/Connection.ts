@@ -95,6 +95,7 @@ export class Connection {
             return { status: "ok" };
         }
 
+        console.log(body)
         throw new Error("Invalid RPC payload");
     }
 

@@ -123,6 +123,7 @@ export class RpcService {
             }
         }
 
+        console.log(body)
         throw new Error("Invalid RPC payload");
     }
 }
