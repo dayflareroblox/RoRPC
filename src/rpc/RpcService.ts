@@ -120,28 +120,37 @@ export class RpcService {
                 break;
 
             case "invoke":
-                if (body.jobId) {
-                    const conn = this.connectionPool.getConnection(body.jobId);
-                    if (!conn) throw new Error("Invocation from unregistered job.");
-                    return conn.handleInvocation(body);
-                } else {
-                    const handler = this.globalHandlers.get(body.method);
-                    if (!handler) throw new Error(`No global handler for '${body.method}'`);
+                const hasJobId = Boolean(body.jobId);
 
-                    const result = await handler(body.args);
-                    if (body.id) {
-                        await this.client.publishMessage({
-                            topic: body.replyTopic ?? this.topic,
-                            message: JSON.stringify({
-                                type: "response",
-                                id: body.id,
-                                result,
-                                jobId: "global",
-                            }),
-                        });
+                if (hasJobId) {
+                    const conn = this.connectionPool.getConnection(body.jobId);
+                    if (conn) {
+                        return conn.handleInvocation(body);
                     }
-                    return { status: "ok", result };
                 }
+
+                const handler = this.globalHandlers.get(body.method);
+                if (!handler) {
+                    if (hasJobId) {
+                        throw new Error(`No connection for job '${body.jobId}' and no global handler for '${body.method}'`);
+                    } else {
+                        throw new Error(`No global handler for '${body.method}'`);
+                    }
+                }
+
+                const result = await handler(body.args);
+                if (body.id) {
+                    await this.client.publishMessage({
+                        topic: body.replyTopic ?? this.topic,
+                        message: JSON.stringify({
+                            type: "response",
+                            id: body.id,
+                            result,
+                            jobId: body.jobId ?? "global",
+                        }),
+                    });
+                }
+                return { status: "ok", result };
 
             case "response":
                 if (body.id) {
