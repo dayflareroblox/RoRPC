@@ -140,7 +140,10 @@ export class RpcService {
                     if (pending && body.result.jobId) {
                         pending.responses.set(body.result.jobId, body.result);
                         if (pending.responses.size === pending.expectedJobs.size) {
-                            const results = Array.from(pending.responses.entries()).map(([jobId, response]) => ({ jobId, response }));
+                            const results = Array.from(pending.responses.entries()).map(([jobId, response]) => ({
+                                jobId: jobId,
+                                response: response.response
+                            }));
                             pending.resolve(results);
                             this.globalPendingRequests.delete(body.id);
                         }
