@@ -1,5 +1,5 @@
 import axios from "axios";
-import { RobloxOpenCloudClientConfig } from "../types";
+import { RobloxOpenCloudClientConfig } from "../types.js";
 
 export class RobloxOpenCloudClient {
   private apiKey: string;

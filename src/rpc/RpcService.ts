@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from "uuid";
-import { RobloxOpenCloudClient } from "../core/RobloxOpenCloudClient";
-import { GlobalPendingRequest, RpcHandler, RpcServiceConfig } from "../types";
-import { RpcConnectionPool } from "./RpcConnectionPool";
+import { RobloxOpenCloudClient } from "../core/RobloxOpenCloudClient.js";
+import { GlobalPendingRequest, RpcHandler, RpcServiceConfig } from "../types.js";
+import { RpcConnectionPool } from "./RpcConnectionPool.js";
 
 /**
  * The RpcService manages RPC calls between your backend and Roblox servers using Open Cloud Messaging.

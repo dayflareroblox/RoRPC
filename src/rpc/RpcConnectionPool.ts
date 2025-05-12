@@ -1,5 +1,5 @@
-import { RpcConnectionConfig } from "../types";
-import { Connection } from "./Connection";
+import { RpcConnectionConfig } from "../types.js";
+import { Connection } from "./Connection.js";
 
 /**
  * Manages active RPC connections between the backend and Roblox game servers.

@@ -1,4 +1,4 @@
-import { RpcService } from "./rpc/RpcService"
-import { RobloxOpenCloudClient } from "./core/RobloxOpenCloudClient"
+import { RpcService } from "./rpc/RpcService.js"
+import { RobloxOpenCloudClient } from "./core/RobloxOpenCloudClient.js"
 
 export { RpcService, RobloxOpenCloudClient }

@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from "uuid";
-import { RobloxOpenCloudClient } from "../core/RobloxOpenCloudClient";
-import { RpcHandler, RpcConnectionConfig, RpcResponse } from "../types";
+import { RobloxOpenCloudClient } from "../core/RobloxOpenCloudClient.js";
+import { RpcHandler, RpcConnectionConfig, RpcResponse } from "../types.js";
 
 /**
  * Represents a single RPC connection with a Roblox server instance.

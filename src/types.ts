@@ -1,4 +1,4 @@
-import { RobloxOpenCloudClient } from "./core/RobloxOpenCloudClient";
+import { RobloxOpenCloudClient } from "./core/RobloxOpenCloudClient.js";
 export interface RpcMessage {
     type: "invoke";
     method: string;
